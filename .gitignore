@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# FFmpeg sidecar binary (downloaded locally; Phase 5 CI re-fetches at build time)
+src-tauri/binaries/
