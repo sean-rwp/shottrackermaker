@@ -25,3 +25,6 @@ dist-ssr
 
 # FFmpeg sidecar binary (downloaded locally; Phase 5 CI re-fetches at build time)
 src-tauri/binaries/
+
+# Local test fodder (user video files for manual testing, never committed)
+test_images/
