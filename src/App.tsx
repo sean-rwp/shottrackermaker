@@ -13,14 +13,15 @@ type VideoEntry = {
   error?: string;
 };
 
+type Stage = "idle" | "scanning" | "extracting" | "saving";
+
 function App() {
   const [folder, setFolder] = useState<string>("");
   const [entries, setEntries] = useState<VideoEntry[]>([]);
   const [error, setError] = useState<string>("");
-  const [scanning, setScanning] = useState(false);
-  const [extracting, setExtracting] = useState(false);
-  const [generating, setGenerating] = useState(false);
   const [savedPath, setSavedPath] = useState<string>("");
+  const [stage, setStage] = useState<Stage>("idle");
+  const [progressIdx, setProgressIdx] = useState<number>(0);
 
   const entriesRef = useRef<VideoEntry[]>([]);
   useEffect(() => {
@@ -37,93 +38,114 @@ function App() {
     setFolder("");
     setSavedPath("");
     setError("");
+    setStage("idle");
+    setProgressIdx(0);
   }
 
-  async function pickFolder() {
-    setError("");
-    setSavedPath("");
-    try {
-      const selected = await open({
-        directory: true,
-        multiple: false,
-        title: "Pick a folder of video clips",
-      });
-      if (selected === null) return;
-      const folderPath = selected as string;
-      setFolder(folderPath);
-      setScanning(true);
-      const list = await invoke<string[]>("list_video_files", {
-        folder: folderPath,
-      });
-      setEntries(list.map((p) => ({ path: p, status: "pending" as EntryStatus })));
-    } catch (e) {
-      setError(String(e));
-      setEntries([]);
-    } finally {
-      setScanning(false);
+  function statusLabel(e: VideoEntry): { icon: string; text: string; color: string } {
+    switch (e.status) {
+      case "pending":
+        return { icon: "·", text: "Pending", color: "#888" };
+      case "extracting":
+        return { icon: "⏳", text: "Extracting...", color: "#1976d2" };
+      case "done":
+        return { icon: "✓", text: "Done", color: "#2e7d32" };
+      case "skipped":
+        return {
+          icon: "⊘",
+          text: `Skipped (${e.error || "unknown"})`,
+          color: "#e65100",
+        };
+      case "error":
+        return {
+          icon: "✗",
+          text: `Error: ${e.error || "unknown"}`,
+          color: "#b71c1c",
+        };
     }
-  }
-
-  function updateEntry(idx: number, patch: Partial<VideoEntry>) {
-    setEntries((prev) => {
-      const next = [...prev];
-      next[idx] = { ...next[idx], ...patch };
-      return next;
-    });
-  }
-
-  async function extractAll() {
-    setExtracting(true);
-    setError("");
-    setSavedPath("");
-    const items = entriesRef.current;
-    for (let i = 0; i < items.length; i++) {
-      const entry = items[i];
-      const lower = entry.path.toLowerCase();
-      if (lower.endsWith(".r3d")) {
-        updateEntry(i, {
-          status: "skipped",
-          error: "R3D format not supported (Phase 4)",
-        });
-        continue;
-      }
-      updateEntry(i, { status: "extracting" });
-      try {
-        const pngPath = await invoke<string>("extract_frame", {
-          videoPath: entry.path,
-        });
-        updateEntry(i, { status: "done", pngPath });
-      } catch (e) {
-        updateEntry(i, { status: "error", error: String(e) });
-      }
-    }
-    setExtracting(false);
   }
 
   async function generateTracker() {
     setError("");
     setSavedPath("");
+    setEntries([]);
+    setFolder("");
+    setProgressIdx(0);
 
-    const successful = entriesRef.current.filter((e) => e.status === "done" && e.pngPath);
-    if (successful.length === 0) {
-      setError("No extracted frames to write into a tracker.");
-      return;
-    }
-
-    const folderName =
-      folder.split(/[/\\]/).filter(Boolean).pop() || "tracker";
-    const defaultName = `${folderName}_tracker.xlsx`;
-
-    const filePath = await save({
-      title: "Save shot tracker",
-      defaultPath: defaultName,
-      filters: [{ name: "Excel Workbook", extensions: ["xlsx"] }],
+    const selected = await open({
+      directory: true,
+      multiple: false,
+      title: "Pick a folder of video clips",
     });
-    if (filePath === null) return;
+    if (selected === null) return;
+    const folderPath = selected as string;
+    setFolder(folderPath);
 
-    setGenerating(true);
+    setStage("scanning");
 
     try {
+      const videoPaths = await invoke<string[]>("list_video_files", {
+        folder: folderPath,
+      });
+      if (videoPaths.length === 0) {
+        setError("No video files found in this folder.");
+        setStage("idle");
+        return;
+      }
+
+      setStage("extracting");
+      const items: VideoEntry[] = videoPaths.map((p) => ({
+        path: p,
+        status: "pending" as EntryStatus,
+      }));
+      setEntries([...items]);
+
+      for (let i = 0; i < items.length; i++) {
+        setProgressIdx(i + 1);
+        const lower = items[i].path.toLowerCase();
+        if (lower.endsWith(".r3d")) {
+          items[i] = {
+            ...items[i],
+            status: "skipped",
+            error: "R3D format not supported (Phase 4)",
+          };
+          setEntries([...items]);
+          continue;
+        }
+        items[i] = { ...items[i], status: "extracting" };
+        setEntries([...items]);
+        try {
+          const pngPath = await invoke<string>("extract_frame", {
+            videoPath: items[i].path,
+          });
+          items[i] = { ...items[i], status: "done", pngPath };
+        } catch (e) {
+          items[i] = { ...items[i], status: "error", error: String(e) };
+        }
+        setEntries([...items]);
+      }
+
+      const successful = items.filter((e) => e.status === "done" && e.pngPath);
+      if (successful.length === 0) {
+        setError("No frames could be extracted from this folder.");
+        setStage("idle");
+        return;
+      }
+
+      setStage("saving");
+      const folderName =
+        folderPath.split(/[/\\]/).filter(Boolean).pop() || "tracker";
+      const defaultName = `${folderName}_tracker.xlsx`;
+      const filePath = await save({
+        title: "Save shot tracker",
+        defaultPath: defaultName,
+        filters: [{ name: "Excel Workbook", extensions: ["xlsx"] }],
+      });
+      if (filePath === null) {
+        setStage("idle");
+        return;
+      }
+
       const workbook = new ExcelJS.Workbook();
       const sheet = workbook.addWorksheet("Shots");
 
@@ -173,17 +195,16 @@ function App() {
 
       const xlsxBuffer = await workbook.xlsx.writeBuffer();
       const xlsxBytes = Array.from(new Uint8Array(xlsxBuffer));
-
       await invoke("write_file_bytes", {
         path: filePath,
         bytes: xlsxBytes,
       });
 
       setSavedPath(filePath);
+      setStage("idle");
     } catch (e) {
       setError(String(e));
-    } finally {
-      setGenerating(false);
+      setStage("idle");
     }
   }
 
@@ -194,36 +215,20 @@ function App() {
     total: entries.length,
   };
 
-  const allExtractDone =
-    entries.length > 0 &&
-    entries.every(
-      (e) =>
-        e.status === "done" || e.status === "skipped" || e.status === "error"
-    );
+  const isWorking = stage !== "idle";
+  const showSummary =
+    stage === "extracting" ||
+    stage === "saving" ||
+    summary.done > 0 ||
+    summary.skipped > 0 ||
+    summary.errored > 0;
 
-  const canGenerate = allExtractDone && summary.done > 0;
-
-  function statusLabel(e: VideoEntry): { icon: string; text: string; color: string } {
-    switch (e.status) {
-      case "pending":
-        return { icon: "·", text: "Pending", color: "#888" };
-      case "extracting":
-        return { icon: "⏳", text: "Extracting...", color: "#1976d2" };
-      case "done":
-        return { icon: "✓", text: "Done", color: "#2e7d32" };
-      case "skipped":
-        return {
-          icon: "⊘",
-          text: `Skipped (${e.error || "unknown"})`,
-          color: "#e65100",
-        };
-      case "error":
-        return {
-          icon: "✗",
-          text: `Error: ${e.error || "unknown"}`,
-          color: "#b71c1c",
-        };
-    }
+  function buttonLabel(): string {
+    if (stage === "scanning") return "Scanning...";
+    if (stage === "extracting")
+      return `Extracting (${progressIdx}/${entries.length})...`;
+    if (stage === "saving") return "Saving tracker...";
+    return "Generate Tracker";
   }
 
   const panelStyle: React.CSSProperties = {
@@ -251,32 +256,14 @@ function App() {
     lineHeight: 1,
   };
 
-  const busy = scanning || extracting || generating;
-
   return (
     <main className="container">
       <h1>ShotTrackerMaker</h1>
-      <p>Phase 2 Gate C — Tracker generation</p>
+      <p>Phase 2 Gate D — End-to-end one-click tracker</p>
 
-      <div style={{ display: "flex", gap: "0.5em", justifyContent: "center", flexWrap: "wrap" }}>
-        <button onClick={pickFolder} disabled={busy}>
-          {scanning ? "Scanning..." : "Pick Folder"}
-        </button>
-        {entries.length > 0 && (
-          <button onClick={extractAll} disabled={busy || allExtractDone}>
-            {extracting
-              ? "Extracting..."
-              : allExtractDone
-                ? "Frames Extracted"
-                : `Extract Frames (${entries.length})`}
-          </button>
-        )}
-        {canGenerate && (
-          <button onClick={generateTracker} disabled={busy}>
-            {generating ? "Generating..." : "Generate Tracker"}
-          </button>
-        )}
-      </div>
+      <button onClick={generateTracker} disabled={isWorking}>
+        {buttonLabel()}
+      </button>
 
       {folder && (
         <p style={{ marginTop: "1em", fontSize: "0.85em", color: "#555" }}>
@@ -286,12 +273,17 @@ function App() {
 
       {entries.length > 0 && (
         <div style={{ ...panelStyle, background: "#f5f5f5", color: "#000" }}>
-          <button onClick={clearAll} aria-label="Clear" style={closeBtnStyle}>
+          <button
+            onClick={clearAll}
+            aria-label="Clear"
+            style={closeBtnStyle}
+            disabled={isWorking}
+          >
             ×
           </button>
           <strong>
             {entries.length} video file{entries.length === 1 ? "" : "s"}
-            {(extracting || allExtractDone) && (
+            {showSummary && (
               <span style={{ fontWeight: "normal" }}>
                 {" — "}
                 {summary.done} done
@@ -357,12 +349,6 @@ function App() {
             {savedPath}
           </div>
         </div>
-      )}
-
-      {folder && !scanning && entries.length === 0 && !error && (
-        <p style={{ ...panelStyle, background: "#fff3e0", color: "#e65100" }}>
-          No video files found. Looking for: .mov, .mp4, .mxf, .r3d, .avi, .mkv
-        </p>
       )}
 
       {error && (
