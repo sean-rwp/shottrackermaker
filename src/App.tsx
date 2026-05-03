@@ -61,6 +61,8 @@ function App() {
   const [progressIdx, setProgressIdx] = useState<number>(0);
   const [progressTotal, setProgressTotal] = useState<number>(0);
   const [expandedErrors, setExpandedErrors] = useState<Set<string>>(new Set());
+  const [backgroundUrl, setBackgroundUrl] = useState<string>("");
+  const [showSettings, setShowSettings] = useState<boolean>(false);
 
   const entriesRef = useRef<VideoEntry[]>([]);
   useEffect(() => {
@@ -68,6 +70,57 @@ function App() {
   }, [entries]);
 
   const cancelRequestedRef = useRef<boolean>(false);
+  const backgroundUrlRef = useRef<string>("");
+
+  // Load saved background on mount
+  useEffect(() => {
+    (async () => {
+      try {
+        const bytes = await invoke<number[] | null>("get_background");
+        if (bytes && bytes.length > 0) {
+          const blob = new Blob([new Uint8Array(bytes)]);
+          const url = URL.createObjectURL(blob);
+          backgroundUrlRef.current = url;
+          setBackgroundUrl(url);
+        }
+      } catch (e) {
+        console.error("Failed to load saved background:", e);
+      }
+    })();
+    return () => {
+      if (backgroundUrlRef.current) {
+        URL.revokeObjectURL(backgroundUrlRef.current);
+      }
+    };
+  }, []);
+
+  // Apply background to body + toggle overlay class
+  useEffect(() => {
+    if (backgroundUrl) {
+      document.body.style.backgroundImage = `url("${backgroundUrl}")`;
+      document.body.style.backgroundSize = "cover";
+      document.body.style.backgroundPosition = "center center";
+      document.body.style.backgroundRepeat = "no-repeat";
+      document.body.style.backgroundAttachment = "fixed";
+      document.body.classList.add("has-bg");
+    } else {
+      document.body.style.backgroundImage = "";
+      document.body.classList.remove("has-bg");
+    }
+  }, [backgroundUrl]);
+
+  // Close gear menu on outside click
+  useEffect(() => {
+    if (!showSettings) return;
+    const handler = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target && !target.closest(".gear-container")) {
+        setShowSettings(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [showSettings]);
 
   function basename(path: string): string {
     const parts = path.split(/[/\\]/);
@@ -93,6 +146,52 @@ function App() {
       else next.add(path);
       return next;
     });
+  }
+
+  async function pickBackgroundImage() {
+    setShowSettings(false);
+    try {
+      const selected = await open({
+        multiple: false,
+        title: "Choose a background image",
+        filters: [
+          { name: "Image", extensions: ["png", "jpg", "jpeg", "webp"] },
+        ],
+      });
+      if (selected === null) return;
+      const sourcePath = selected as string;
+
+      await invoke("set_background_from_path", { sourcePath });
+
+      const bytes = await invoke<number[] | null>("get_background");
+      if (bytes && bytes.length > 0) {
+        if (backgroundUrlRef.current) {
+          URL.revokeObjectURL(backgroundUrlRef.current);
+        }
+        const blob = new Blob([new Uint8Array(bytes)]);
+        const url = URL.createObjectURL(blob);
+        backgroundUrlRef.current = url;
+        setBackgroundUrl(url);
+      }
+    } catch (e) {
+      const err = parseInvokeError(e);
+      setError(err.short);
+    }
+  }
+
+  async function resetBackground() {
+    setShowSettings(false);
+    try {
+      await invoke("clear_background");
+      if (backgroundUrlRef.current) {
+        URL.revokeObjectURL(backgroundUrlRef.current);
+        backgroundUrlRef.current = "";
+      }
+      setBackgroundUrl("");
+    } catch (e) {
+      const err = parseInvokeError(e);
+      setError(err.short);
+    }
   }
 
   function statusLabel(e: VideoEntry): { icon: string; text: string } {
@@ -393,108 +492,132 @@ function App() {
   }
 
   return (
-    <main className="container">
-      <h1>ShotTrackerMaker</h1>
-      <p className="tagline">Folder of clips → shot tracker. One click.</p>
-
-      <div className="button-row">
-        {stage === "extracting" ? (
-          <button onClick={cancelExtraction} className="btn-cancel">
-            Cancel ({progressIdx}/{progressTotal})
-          </button>
-        ) : stage === "awaitingDecision" ? (
-          <>
-            <button onClick={saveFromDecision}>
-              Save Tracker ({summary.done} done)
-            </button>
-            {failedCount > 0 && (
-              <button onClick={retryFailed}>
-                Retry Failed ({failedCount})
-              </button>
+    <>
+      <div className="gear-container">
+        <button
+          className="gear-btn"
+          onClick={(e) => {
+            e.stopPropagation();
+            setShowSettings((s) => !s);
+          }}
+          aria-label="Settings"
+          title="Background"
+        >
+          ⚙
+        </button>
+        {showSettings && (
+          <div className="gear-menu">
+            <button onClick={pickBackgroundImage}>Set background…</button>
+            {backgroundUrl && (
+              <button onClick={resetBackground}>Reset background</button>
             )}
-          </>
-        ) : (
-          <button onClick={generateTracker} disabled={isWorking}>
-            {primaryButtonLabel()}
-          </button>
+          </div>
         )}
       </div>
 
-      {folder && (
-        <p className="folder-path">
-          Folder: <code>{folder}</code>
-        </p>
-      )}
+      <main className="container">
+        <h1>ShotTrackerMaker</h1>
+        <p className="tagline">Folder of clips → shot tracker. One click.</p>
 
-      {entries.length > 0 && (
-        <div className="panel panel--neutral">
-          <button
-            onClick={clearAll}
-            aria-label="Clear"
-            className="panel-close-btn"
-            disabled={isWorking}
-          >
-            ×
-          </button>
-          <span className="panel-title">
-            {entries.length} video file{entries.length === 1 ? "" : "s"}
-            {showSummary && (
-              <span className="summary-detail">
-                — {summary.done} done
-                {summary.skipped > 0 && `, ${summary.skipped} skipped`}
-                {summary.errored > 0 && `, ${summary.errored} errored`}
-                {summary.cancelled > 0 && `, ${summary.cancelled} cancelled`}
-              </span>
-            )}
-          </span>
-          <ul className="entries-list">
-            {entries.map((e) => {
-              const s = statusLabel(e);
-              const expanded = expandedErrors.has(e.path);
-              const hasDetails = e.status === "error" && !!e.errorDetails;
-              return (
-                <li key={e.path} className="entry-row">
-                  <span className={`entry-icon status-${e.status}`}>
-                    {s.icon}
-                  </span>
-                  <span className="entry-name">{basename(e.path)}</span>
-                  <span className={`entry-status status-${e.status}`}>
-                    — {s.text}
-                  </span>
-                  {hasDetails && (
-                    <button
-                      onClick={() => toggleErrorDetails(e.path)}
-                      className="entry-details-btn"
-                    >
-                      {expanded ? "hide" : "details"}
-                    </button>
-                  )}
-                  {hasDetails && expanded && (
-                    <pre className="entry-details-block">{e.errorDetails}</pre>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
+        <div className="button-row">
+          {stage === "extracting" ? (
+            <button onClick={cancelExtraction} className="btn-cancel">
+              Cancel ({progressIdx}/{progressTotal})
+            </button>
+          ) : stage === "awaitingDecision" ? (
+            <>
+              <button onClick={saveFromDecision}>
+                Save Tracker ({summary.done} done)
+              </button>
+              {failedCount > 0 && (
+                <button onClick={retryFailed}>
+                  Retry Failed ({failedCount})
+                </button>
+              )}
+            </>
+          ) : (
+            <button onClick={generateTracker} disabled={isWorking}>
+              {primaryButtonLabel()}
+            </button>
+          )}
         </div>
-      )}
 
-      {savedPath && (
-        <div className="panel panel--success">
-          <button
-            onClick={() => setSavedPath("")}
-            aria-label="Clear"
-            className="panel-close-btn"
-          >
-            ×
-          </button>
-          <span className="panel-title">✓ Tracker saved</span>
-          <div className="saved-path">{savedPath}</div>
-        </div>
-      )}
+        {folder && (
+          <p className="folder-path">
+            Folder: <code>{folder}</code>
+          </p>
+        )}
 
-      {error && <pre className="panel panel--error">ERROR: {error}</pre>}
-    </main>
+        {entries.length > 0 && (
+          <div className="panel panel--neutral">
+            <button
+              onClick={clearAll}
+              aria-label="Clear"
+              className="panel-close-btn"
+              disabled={isWorking}
+            >
+              ×
+            </button>
+            <span className="panel-title">
+              {entries.length} video file{entries.length === 1 ? "" : "s"}
+              {showSummary && (
+                <span className="summary-detail">
+                  — {summary.done} done
+                  {summary.skipped > 0 && `, ${summary.skipped} skipped`}
+                  {summary.errored > 0 && `, ${summary.errored} errored`}
+                  {summary.cancelled > 0 && `, ${summary.cancelled} cancelled`}
+                </span>
+              )}
+            </span>
+            <ul className="entries-list">
+              {entries.map((e) => {
+                const s = statusLabel(e);
+                const expanded = expandedErrors.has(e.path);
+                const hasDetails = e.status === "error" && !!e.errorDetails;
+                return (
+                  <li key={e.path} className="entry-row">
+                    <span className={`entry-icon status-${e.status}`}>
+                      {s.icon}
+                    </span>
+                    <span className="entry-name">{basename(e.path)}</span>
+                    <span className={`entry-status status-${e.status}`}>
+                      — {s.text}
+                    </span>
+                    {hasDetails && (
+                      <button
+                        onClick={() => toggleErrorDetails(e.path)}
+                        className="entry-details-btn"
+                      >
+                        {expanded ? "hide" : "details"}
+                      </button>
+                    )}
+                    {hasDetails && expanded && (
+                      <pre className="entry-details-block">{e.errorDetails}</pre>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        )}
+
+        {savedPath && (
+          <div className="panel panel--success">
+            <button
+              onClick={() => setSavedPath("")}
+              aria-label="Clear"
+              className="panel-close-btn"
+            >
+              ×
+            </button>
+            <span className="panel-title">✓ Tracker saved</span>
+            <div className="saved-path">{savedPath}</div>
+          </div>
+        )}
+
+        {error && <pre className="panel panel--error">ERROR: {error}</pre>}
+      </main>
+    </>
   );
 }
 

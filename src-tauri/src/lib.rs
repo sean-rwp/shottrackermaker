@@ -1,7 +1,9 @@
 use std::path::PathBuf;
+use tauri::Manager;
 use tauri_plugin_shell::ShellExt;
 
 const VIDEO_EXTENSIONS: &[&str] = &["mov", "mp4", "mxf", "r3d", "avi", "mkv"];
+const BACKGROUND_FILENAME: &str = "background.bin";
 
 #[derive(Debug, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -45,6 +47,16 @@ fn categorize_ffmpeg_stderr(stderr: &str) -> (&'static str, &'static str) {
         return ("io", "Disk full");
     }
     ("ffmpeg", "FFmpeg failed")
+}
+
+fn background_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    let data_dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| format!("Failed to resolve app data dir: {}", e))?;
+    std::fs::create_dir_all(&data_dir)
+        .map_err(|e| format!("Failed to create app data dir: {}", e))?;
+    Ok(data_dir.join(BACKGROUND_FILENAME))
 }
 
 #[tauri::command]
@@ -155,6 +167,38 @@ fn write_file_bytes(path: String, bytes: Vec<u8>) -> Result<(), String> {
     std::fs::write(&path, bytes).map_err(|e| format!("Failed to write {}: {}", path, e))
 }
 
+#[tauri::command]
+fn set_background_from_path(
+    app: tauri::AppHandle,
+    source_path: String,
+) -> Result<(), String> {
+    let dest = background_path(&app)?;
+    std::fs::copy(&source_path, &dest)
+        .map_err(|e| format!("Failed to copy background image: {}", e))?;
+    Ok(())
+}
+
+#[tauri::command]
+fn get_background(app: tauri::AppHandle) -> Result<Option<Vec<u8>>, String> {
+    let path = background_path(&app)?;
+    if !path.exists() {
+        return Ok(None);
+    }
+    let bytes = std::fs::read(&path)
+        .map_err(|e| format!("Failed to read saved background: {}", e))?;
+    Ok(Some(bytes))
+}
+
+#[tauri::command]
+fn clear_background(app: tauri::AppHandle) -> Result<(), String> {
+    let path = background_path(&app)?;
+    if path.exists() {
+        std::fs::remove_file(&path)
+            .map_err(|e| format!("Failed to remove background: {}", e))?;
+    }
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -165,7 +209,10 @@ pub fn run() {
             list_video_files,
             extract_frame,
             read_file_bytes,
-            write_file_bytes
+            write_file_bytes,
+            set_background_from_path,
+            get_background,
+            clear_background
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
