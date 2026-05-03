@@ -95,29 +95,23 @@ function App() {
     });
   }
 
-  function statusLabel(e: VideoEntry): { icon: string; text: string; color: string } {
+  function statusLabel(e: VideoEntry): { icon: string; text: string } {
     switch (e.status) {
       case "pending":
-        return { icon: "·", text: "Pending", color: "#888" };
+        return { icon: "·", text: "Pending" };
       case "extracting":
-        return { icon: "⏳", text: "Extracting...", color: "#1976d2" };
+        return { icon: "⏳", text: "Extracting..." };
       case "done":
-        return { icon: "✓", text: "Done", color: "#2e7d32" };
+        return { icon: "✓", text: "Done" };
       case "skipped":
-        return {
-          icon: "⊘",
-          text: `Skipped (${e.error || "unknown"})`,
-          color: "#e65100",
-        };
+        return { icon: "⊘", text: `Skipped (${e.error || "unknown"})` };
       case "error":
-        return { icon: "✗", text: e.error || "Error", color: "#b71c1c" };
+        return { icon: "✗", text: e.error || "Error" };
       case "cancelled":
-        return { icon: "⊘", text: "Cancelled", color: "#9e9e9e" };
+        return { icon: "⊘", text: "Cancelled" };
     }
   }
 
-  // Run extraction for the given indices in the items array.
-  // Mutates items in place AND mirrors to setEntries for live UI.
   async function extractIndices(items: VideoEntry[], indices: number[]): Promise<VideoEntry[]> {
     cancelRequestedRef.current = false;
     setStage("extracting");
@@ -187,7 +181,6 @@ function App() {
 
     if (done === 0) {
       if (cancelled > 0 && errored === 0) {
-        // Pure cancellation, no errors — just go back to idle
         setStage("idle");
       } else {
         setError("No frames could be extracted from this folder.");
@@ -197,12 +190,10 @@ function App() {
     }
 
     if (errored === 0 && cancelled === 0) {
-      // Clean run — auto-progress to save
       void doSave(items, folderPath);
       return;
     }
 
-    // Mixed result — pause and let user decide
     setStage("awaitingDecision");
   }
 
@@ -401,70 +392,14 @@ function App() {
     return "Generate Tracker";
   }
 
-  const panelStyle: React.CSSProperties = {
-    textAlign: "left",
-    padding: "1em",
-    borderRadius: "6px",
-    fontSize: "0.85em",
-    maxWidth: "750px",
-    margin: "1.5em auto 0",
-    position: "relative",
-  };
-
-  const closeBtnStyle: React.CSSProperties = {
-    position: "absolute",
-    top: "0.4em",
-    right: "0.6em",
-    background: "transparent",
-    border: "none",
-    cursor: "pointer",
-    fontSize: "1.3em",
-    fontWeight: "bold",
-    color: "inherit",
-    opacity: 0.5,
-    padding: "0 0.4em",
-    lineHeight: 1,
-  };
-
-  const detailsBtnStyle: React.CSSProperties = {
-    marginLeft: "0.5em",
-    fontSize: "0.85em",
-    padding: "0.1em 0.5em",
-    background: "transparent",
-    border: "1px solid #b71c1c",
-    color: "#b71c1c",
-    borderRadius: "3px",
-    cursor: "pointer",
-  };
-
-  const detailsBlockStyle: React.CSSProperties = {
-    marginTop: "0.4em",
-    marginLeft: "1.5em",
-    padding: "0.6em 0.8em",
-    background: "#fff",
-    border: "1px solid #ffcdd2",
-    borderRadius: "4px",
-    fontSize: "0.8em",
-    color: "#333",
-    whiteSpace: "pre-wrap",
-    maxHeight: "200px",
-    overflowY: "auto",
-  };
-
-  const cancelBtnStyle: React.CSSProperties = {
-    background: "#b71c1c",
-    color: "#fff",
-    borderColor: "#b71c1c",
-  };
-
   return (
     <main className="container">
       <h1>ShotTrackerMaker</h1>
-      <p>Phase 4 Gate B — Cancel + Retry Failed</p>
+      <p className="tagline">Folder of clips → shot tracker. One click.</p>
 
-      <div style={{ display: "flex", gap: "0.5em", justifyContent: "center", flexWrap: "wrap" }}>
+      <div className="button-row">
         {stage === "extracting" ? (
-          <button onClick={cancelExtraction} style={cancelBtnStyle}>
+          <button onClick={cancelExtraction} className="btn-cancel">
             Cancel ({progressIdx}/{progressTotal})
           </button>
         ) : stage === "awaitingDecision" ? (
@@ -486,74 +421,56 @@ function App() {
       </div>
 
       {folder && (
-        <p style={{ marginTop: "1em", fontSize: "0.85em", color: "#555" }}>
+        <p className="folder-path">
           Folder: <code>{folder}</code>
         </p>
       )}
 
       {entries.length > 0 && (
-        <div style={{ ...panelStyle, background: "#f5f5f5", color: "#000" }}>
+        <div className="panel panel--neutral">
           <button
             onClick={clearAll}
             aria-label="Clear"
-            style={closeBtnStyle}
+            className="panel-close-btn"
             disabled={isWorking}
           >
             ×
           </button>
-          <strong>
+          <span className="panel-title">
             {entries.length} video file{entries.length === 1 ? "" : "s"}
             {showSummary && (
-              <span style={{ fontWeight: "normal" }}>
-                {" — "}
-                {summary.done} done
+              <span className="summary-detail">
+                — {summary.done} done
                 {summary.skipped > 0 && `, ${summary.skipped} skipped`}
                 {summary.errored > 0 && `, ${summary.errored} errored`}
                 {summary.cancelled > 0 && `, ${summary.cancelled} cancelled`}
               </span>
             )}
-          </strong>
-          <ul
-            style={{
-              margin: "0.5em 0 0 0",
-              paddingLeft: "1.2em",
-              maxHeight: "400px",
-              overflowY: "auto",
-              fontFamily: "monospace",
-            }}
-          >
+          </span>
+          <ul className="entries-list">
             {entries.map((e) => {
               const s = statusLabel(e);
               const expanded = expandedErrors.has(e.path);
               const hasDetails = e.status === "error" && !!e.errorDetails;
               return (
-                <li
-                  key={e.path}
-                  style={{ wordBreak: "break-all", marginBottom: "0.25em" }}
-                >
-                  <span
-                    style={{
-                      display: "inline-block",
-                      width: "1.5em",
-                      color: s.color,
-                    }}
-                  >
+                <li key={e.path} className="entry-row">
+                  <span className={`entry-icon status-${e.status}`}>
                     {s.icon}
                   </span>
-                  <span>{basename(e.path)}</span>
-                  <span style={{ marginLeft: "0.5em", color: s.color }}>
+                  <span className="entry-name">{basename(e.path)}</span>
+                  <span className={`entry-status status-${e.status}`}>
                     — {s.text}
                   </span>
                   {hasDetails && (
                     <button
                       onClick={() => toggleErrorDetails(e.path)}
-                      style={detailsBtnStyle}
+                      className="entry-details-btn"
                     >
                       {expanded ? "hide" : "details"}
                     </button>
                   )}
                   {hasDetails && expanded && (
-                    <pre style={detailsBlockStyle}>{e.errorDetails}</pre>
+                    <pre className="entry-details-block">{e.errorDetails}</pre>
                   )}
                 </li>
               );
@@ -563,41 +480,20 @@ function App() {
       )}
 
       {savedPath && (
-        <div
-          style={{
-            ...panelStyle,
-            background: "#e8f5e9",
-            color: "#1b5e20",
-            fontFamily: "monospace",
-          }}
-        >
+        <div className="panel panel--success">
           <button
             onClick={() => setSavedPath("")}
             aria-label="Clear"
-            style={closeBtnStyle}
+            className="panel-close-btn"
           >
             ×
           </button>
-          <strong>✓ Tracker saved:</strong>
-          <div style={{ marginTop: "0.5em", wordBreak: "break-all" }}>
-            {savedPath}
-          </div>
+          <span className="panel-title">✓ Tracker saved</span>
+          <div className="saved-path">{savedPath}</div>
         </div>
       )}
 
-      {error && (
-        <pre
-          style={{
-            ...panelStyle,
-            background: "#ffebee",
-            color: "#b71c1c",
-            whiteSpace: "pre-wrap",
-            fontFamily: "monospace",
-          }}
-        >
-          ERROR: {error}
-        </pre>
-      )}
+      {error && <pre className="panel panel--error">ERROR: {error}</pre>}
     </main>
   );
 }
