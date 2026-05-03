@@ -11,9 +11,35 @@ type VideoEntry = {
   status: EntryStatus;
   pngPath?: string;
   error?: string;
+  errorDetails?: string;
+  errorCategory?: string;
 };
 
 type Stage = "idle" | "scanning" | "extracting" | "saving";
+
+type ParsedError = {
+  short: string;
+  category: string;
+  details: string;
+};
+
+function parseInvokeError(e: unknown): ParsedError {
+  if (e === null || e === undefined) {
+    return { short: "Unknown error", category: "unknown", details: "" };
+  }
+  if (typeof e === "string") {
+    return { short: e, category: "unknown", details: "" };
+  }
+  if (typeof e === "object" && "short" in e) {
+    const obj = e as Partial<ParsedError>;
+    return {
+      short: obj.short ?? "Unknown error",
+      category: obj.category ?? "unknown",
+      details: obj.details ?? "",
+    };
+  }
+  return { short: String(e), category: "unknown", details: "" };
+}
 
 function App() {
   const [folder, setFolder] = useState<string>("");
@@ -22,6 +48,7 @@ function App() {
   const [savedPath, setSavedPath] = useState<string>("");
   const [stage, setStage] = useState<Stage>("idle");
   const [progressIdx, setProgressIdx] = useState<number>(0);
+  const [expandedErrors, setExpandedErrors] = useState<Set<string>>(new Set());
 
   const entriesRef = useRef<VideoEntry[]>([]);
   useEffect(() => {
@@ -40,6 +67,16 @@ function App() {
     setError("");
     setStage("idle");
     setProgressIdx(0);
+    setExpandedErrors(new Set());
+  }
+
+  function toggleErrorDetails(path: string) {
+    setExpandedErrors((prev) => {
+      const next = new Set(prev);
+      if (next.has(path)) next.delete(path);
+      else next.add(path);
+      return next;
+    });
   }
 
   function statusLabel(e: VideoEntry): { icon: string; text: string; color: string } {
@@ -59,7 +96,7 @@ function App() {
       case "error":
         return {
           icon: "✗",
-          text: `Error: ${e.error || "unknown"}`,
+          text: e.error || "Error",
           color: "#b71c1c",
         };
     }
@@ -71,6 +108,7 @@ function App() {
     setEntries([]);
     setFolder("");
     setProgressIdx(0);
+    setExpandedErrors(new Set());
 
     const selected = await open({
       directory: true,
@@ -120,7 +158,14 @@ function App() {
           });
           items[i] = { ...items[i], status: "done", pngPath };
         } catch (e) {
-          items[i] = { ...items[i], status: "error", error: String(e) };
+          const err = parseInvokeError(e);
+          items[i] = {
+            ...items[i],
+            status: "error",
+            error: err.short,
+            errorDetails: err.details,
+            errorCategory: err.category,
+          };
         }
         setEntries([...items]);
       }
@@ -203,7 +248,8 @@ function App() {
       setSavedPath(filePath);
       setStage("idle");
     } catch (e) {
-      setError(String(e));
+      const err = parseInvokeError(e);
+      setError(err.short + (err.details ? `\n\nDetails:\n${err.details}` : ""));
       setStage("idle");
     }
   }
@@ -256,10 +302,35 @@ function App() {
     lineHeight: 1,
   };
 
+  const detailsBtnStyle: React.CSSProperties = {
+    marginLeft: "0.5em",
+    fontSize: "0.85em",
+    padding: "0.1em 0.5em",
+    background: "transparent",
+    border: "1px solid #b71c1c",
+    color: "#b71c1c",
+    borderRadius: "3px",
+    cursor: "pointer",
+  };
+
+  const detailsBlockStyle: React.CSSProperties = {
+    marginTop: "0.4em",
+    marginLeft: "1.5em",
+    padding: "0.6em 0.8em",
+    background: "#fff",
+    border: "1px solid #ffcdd2",
+    borderRadius: "4px",
+    fontSize: "0.8em",
+    color: "#333",
+    whiteSpace: "pre-wrap",
+    maxHeight: "200px",
+    overflowY: "auto",
+  };
+
   return (
     <main className="container">
       <h1>ShotTrackerMaker</h1>
-      <p>Phase 2 Gate D — End-to-end one-click tracker</p>
+      <p>Phase 4 Gate A — Error visibility</p>
 
       <button onClick={generateTracker} disabled={isWorking}>
         {buttonLabel()}
@@ -296,13 +367,15 @@ function App() {
             style={{
               margin: "0.5em 0 0 0",
               paddingLeft: "1.2em",
-              maxHeight: "350px",
+              maxHeight: "400px",
               overflowY: "auto",
               fontFamily: "monospace",
             }}
           >
             {entries.map((e) => {
               const s = statusLabel(e);
+              const expanded = expandedErrors.has(e.path);
+              const hasDetails = e.status === "error" && e.errorDetails;
               return (
                 <li
                   key={e.path}
@@ -321,6 +394,17 @@ function App() {
                   <span style={{ marginLeft: "0.5em", color: s.color }}>
                     — {s.text}
                   </span>
+                  {hasDetails && (
+                    <button
+                      onClick={() => toggleErrorDetails(e.path)}
+                      style={detailsBtnStyle}
+                    >
+                      {expanded ? "hide" : "details"}
+                    </button>
+                  )}
+                  {hasDetails && expanded && (
+                    <pre style={detailsBlockStyle}>{e.errorDetails}</pre>
+                  )}
                 </li>
               );
             })}
