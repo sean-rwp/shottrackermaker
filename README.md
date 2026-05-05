@@ -75,8 +75,11 @@ npm install
 #   src-tauri/binaries/ffmpeg-x86_64-pc-windows-msvc.exe       (Windows)
 #   src-tauri/binaries/ffmpeg-x86_64-apple-darwin              (macOS Intel)
 #   src-tauri/binaries/ffmpeg-aarch64-apple-darwin             (macOS Apple Silicon)
-# Get builds from https://www.gyan.dev/ffmpeg/builds/ (Windows)
-# or https://evermeet.cx/ffmpeg/ (macOS).
+#
+# Windows: download a static build from https://www.gyan.dev/ffmpeg/builds/
+# macOS:   `brew install ffmpeg` then
+#          `cp /opt/homebrew/bin/ffmpeg src-tauri/binaries/ffmpeg-aarch64-apple-darwin`
+#          (evermeet.cx provides Intel-only builds; Homebrew gives native ARM.)
 
 npm run tauri dev      # development with hot-reload
 npm run tauri build    # production build
@@ -94,4 +97,10 @@ Read [`KNOWN_LIMITATIONS.md`](./KNOWN_LIMITATIONS.md) for the honest list — in
 
 ## License
 
-To be decided. The bundled FFmpeg essentials build is GPL-licensed; downstream redistribution must respect that.
+**MIT License** — see [`LICENSE`](./LICENSE).
+
+The bundled FFmpeg binary is GPL-licensed, separate from this project's code. See [`THIRD_PARTY_LICENSES.md`](./THIRD_PARTY_LICENSES.md) for full third-party attribution.
+
+## Security
+
+See [`SECURITY.md`](./SECURITY.md) for vulnerability reporting and threat model.
