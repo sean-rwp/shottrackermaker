@@ -2,7 +2,7 @@
 
 A free, local desktop app that turns a folder of video clips into a shot-tracker spreadsheet — automatically.
 
-Built for commercial production teams who hate making shot trackers by hand.
+Built for commercial post producers that are tired of wasting time copy/paste plate names and screenshot/inserting thumbnails for each shot. Auto take thumbnails of each shot. Get a basic shot tracker with thumbnails inserted to build on. 
 
 ---
 
