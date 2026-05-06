@@ -141,7 +141,16 @@ async fn extract_frame(
     })?;
 
     let output = sidecar
-        .args(["-i", &video_path, "-frames:v", "1", "-y", &png_str])
+        .args([
+            "-i",
+            &video_path,
+            "-frames:v",
+            "1",
+            "-vf",
+            "scale=640:-1",
+            "-y",
+            &png_str,
+        ])
         .output()
         .await
         .map_err(|e| {
