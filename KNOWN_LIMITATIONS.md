@@ -6,11 +6,30 @@ An honest list of things ShotTrackerMaker doesn't yet do well, the reasons why, 
 
 ## File format support
 
-### `.r3d` files (RED RAW) are not supported
+### Camera-original RAW formats are not supported
 
-- **What happens:** Files with the `.r3d` extension are detected and shown in the file list, but skipped during extraction. They display a `Skipped` status with the note "R3D format not supported."
-- **Why:** RED RAW is a proprietary format. Decoding it requires either the RED SDK or REDline, both of which have licensing or distribution constraints that would significantly complicate this project. The bundled FFmpeg "essentials" build does not include R3D support.
-- **Workaround:** Convert your `.r3d` clips to ProRes, DNxHD/HR, or H.264 (`.mov`/`.mp4`) using REDCINE-X PRO or DaVinci Resolve before running ShotTrackerMaker.
+Several proprietary RAW formats from cinema cameras require their vendor's SDK to decode. ShotTrackerMaker recognizes these files (they appear in the file list) but skips them during extraction with a marker showing which vendor SDK would be needed.
+
+| Extension | Camera family | Vendor SDK needed |
+|---|---|---|
+| `.r3d` | RED (Komodo, V-Raptor, Epic, Helium, etc.) | RED SDK / REDline |
+| `.ari` / `.arx` | ARRI Alexa Mini, LF, 35 (ARRIRAW) | ARRI SDK |
+| `.braw` | Blackmagic URSA, Pocket Cinema 4K / 6K | Blackmagic BRAW SDK |
+| `.crm` | Canon C300, C500 II, C700 (Cinema RAW Light) | Canon SDK |
+| `.rmf` | Canon C500 (older Raw Movie format) | Canon SDK |
+
+**Why we don't bundle the SDKs:** Each requires separate redistribution rights from the camera vendor (often gated by a written agreement). Even with permission, bundling all of them would add 200–500 MB to the installer for codecs most users will never need.
+
+**Workaround for all the above:** Transcode camera-original RAW to ProRes, DNxHD/DNxHR, or H.264/H.265 before running ShotTrackerMaker. Most NLEs (DaVinci Resolve, Premiere Pro, Final Cut Pro) do this for free as part of proxy generation. Run ShotTrackerMaker on the proxies.
+
+**Possible future support:** RED via detection of an installed REDCINE-X PRO (which includes REDline) is the most likely first add — see repository issues for status.
+
+### Some MXF / MOV files with proprietary codec streams may fail
+
+`.mxf` and `.mov` are containers that can hold many different codecs. ShotTrackerMaker can extract from any clip whose video codec stream is supported by the bundled FFmpeg (ProRes, DNxHD/HR, XAVC, AVC-Intra, H.264/H.265, Cineform, etc.). It can't extract from files whose codec stream is itself proprietary — Sony X-OCN inside an `.mxf` wrapper is the most common example.
+
+- **What you'll see:** The file appears in the list and is processed normally (not pre-skipped), but extraction errors out with a "Codec parameters unreadable" or similar message. Click "details" on the red row to see FFmpeg's full error.
+- **Workaround:** Same as above — transcode to a standard codec before tracker generation.
 
 ### Some uncommon codecs may fail
 

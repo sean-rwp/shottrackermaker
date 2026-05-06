@@ -2,7 +2,14 @@ use std::path::PathBuf;
 use tauri::Manager;
 use tauri_plugin_shell::ShellExt;
 
-const VIDEO_EXTENSIONS: &[&str] = &["mov", "mp4", "mxf", "r3d", "avi", "mkv"];
+const VIDEO_EXTENSIONS: &[&str] = &[
+    // Standard video containers and formats
+    "mov", "mp4", "mxf", "avi", "mkv",
+    // Proprietary RAW formats - listed so they appear in the file
+    // list, but the frontend marks them as skipped (vendor SDK
+    // required to actually decode).
+    "r3d", "ari", "arx", "braw", "crm", "rmf",
+];
 const BACKGROUND_FILENAME: &str = "background.bin";
 
 #[derive(Debug, serde::Serialize)]

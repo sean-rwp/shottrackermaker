@@ -31,9 +31,27 @@ The generated `.xlsx` is intentionally minimal — treat it as a **starting fram
 
 ## Supported video formats
 
-`.mov`, `.mp4`, `.mxf`, `.avi`, `.mkv`.
+**Container formats:** `.mov`, `.mp4`, `.mxf`, `.avi`, `.mkv`
 
-RED `.r3d` files are detected but skipped — see [`KNOWN_LIMITATIONS.md`](./KNOWN_LIMITATIONS.md).
+**Codec coverage inside those containers:**
+- ProRes (all flavors)
+- DNxHD / DNxHR (Avid)
+- H.264 / H.265 (HEVC)
+- XAVC (Sony)
+- AVC-Intra (Panasonic)
+- Cineform
+- Most standard consumer and prosumer codecs
+
+**Camera-RAW formats** detected and listed, but **skipped during extraction** (vendor SDK required to decode):
+
+| Extension | Camera | Vendor SDK |
+|---|---|---|
+| `.r3d` | RED (Komodo, V-Raptor, Epic, Helium) | RED SDK / REDline |
+| `.ari` / `.arx` | ARRI Alexa (Mini, LF, 35) — ARRIRAW | ARRI SDK |
+| `.braw` | Blackmagic URSA, Pocket Cinema | Blackmagic BRAW SDK |
+| `.crm` / `.rmf` | Canon C300 / C500 / C700 | Canon SDK |
+
+These files appear in the file list with a "Skipped — vendor SDK required" marker so you can see them in the list, but no decode is attempted. **Workaround for all of these: transcode to ProRes / DNxHR / H.264 first** (free in DaVinci Resolve, Premiere Pro, Final Cut). See [`KNOWN_LIMITATIONS.md`](./KNOWN_LIMITATIONS.md) for full details.
 
 ---
 

@@ -36,6 +36,17 @@ type ParsedError = {
   details: string;
 };
 
+// Camera-RAW formats we recognize but cannot decode without the
+// camera vendor's SDK. Frontend skips these with a friendly note.
+const UNSUPPORTED_RAW_REASONS: Record<string, string> = {
+  r3d: "RED RAW — vendor SDK required",
+  ari: "ARRIRAW — vendor SDK required",
+  arx: "ARRIRAW — vendor SDK required",
+  braw: "Blackmagic RAW — vendor SDK required",
+  crm: "Canon Cinema RAW Light — vendor SDK required",
+  rmf: "Canon RAW Movie — vendor SDK required",
+};
+
 function parseInvokeError(e: unknown): ParsedError {
   if (e === null || e === undefined) {
     return { short: "Unknown error", category: "unknown", details: "" };
@@ -335,11 +346,13 @@ function App() {
       setProgressIdx(processed);
 
       const lower = items[i].path.toLowerCase();
-      if (lower.endsWith(".r3d")) {
+      const ext = lower.split(".").pop() || "";
+      const skipReason = UNSUPPORTED_RAW_REASONS[ext];
+      if (skipReason) {
         items[i] = {
           ...items[i],
           status: "skipped",
-          error: "R3D format not supported (Phase 4)",
+          error: skipReason,
         };
         setEntries([...items]);
         continue;
