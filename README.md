@@ -25,6 +25,8 @@ Point ShotTrackerMaker at a folder of video clips. It will:
 
 One click. **No cloud uploads. No telemetry. 100% local processing.**
 
+The generated `.xlsx` is intentionally minimal — treat it as a **starting framework**. Open in Excel/Numbers, add your studio's specific columns (Camera, Director, Day, Lens, etc.), apply your branding and styling, then save the customized version as your reusable template.
+
 ---
 
 ## Supported video formats
