@@ -314,6 +314,85 @@ button:disabled {
   word-break: break-all;
 }
 
+/* Folder chips (multi-folder selection) */
+.folder-chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.4rem;
+  margin: 1rem auto 0;
+  max-width: 750px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.folder-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35em;
+  padding: 0.25em 0.4em 0.25em 0.55em;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 4px;
+  font-size: 0.85rem;
+  font-family: ui-monospace, "Cascadia Mono", Consolas, Menlo, monospace;
+  color: #ddd;
+  max-width: 100%;
+}
+
+.folder-chip-icon {
+  font-size: 0.9em;
+}
+
+.folder-chip-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 240px;
+}
+
+.folder-chip-remove {
+  background: transparent;
+  border: none;
+  color: inherit;
+  opacity: 0.5;
+  cursor: pointer;
+  padding: 0 0.35em;
+  font-size: 1.05em;
+  line-height: 1;
+  box-shadow: none;
+  border-radius: 3px;
+}
+
+.folder-chip-remove:hover:not(:disabled) {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.folder-chip-remove:disabled {
+  opacity: 0.25;
+  cursor: not-allowed;
+}
+
+/* Error panel inner body (so the ⚠ Error title isn't pre-wrapped) */
+.error-body {
+  margin-top: 0.4em;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* Per-row source folder badge (multi-folder mode) */
+.entry-folder-badge {
+  display: inline-block;
+  margin-left: 0.5em;
+  padding: 0.05em 0.45em;
+  font-size: 0.78em;
+  color: #aaa;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 3px;
+  vertical-align: middle;
+}
+
 /* Status colors */
 .status-pending { color: #aaa; }
 .status-extracting { color: #64b5f6; }

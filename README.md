@@ -42,9 +42,9 @@ RED `.r3d` files are detected but skipped — see [`KNOWN_LIMITATIONS.md`](./KNO
 1. Download the installer for your OS (Windows `.msi`/`.exe`, macOS `.dmg`).
 2. Install and launch.
 3. Click **Generate Tracker**.
-4. Pick a folder of video clips.
-5. Wait while it extracts (live progress shown in the button label).
-6. When the Save As dialog appears, choose where to save the `.xlsx`.
+4. Pick a folder of video clips. Optionally click **Add Folder** to include clips from additional folders (useful when shoot footage is split across days, cameras, or scenes).
+5. Click **Extract All** when ready. Live progress shown in the button label.
+6. When the Save As dialog appears, choose where to save the `.xlsx`. The default filename is based on your first picked folder.
 
 A `_thumbnails/` subfolder is created next to your videos containing all the PNGs, so you have keepable thumbnails in addition to those embedded in the `.xlsx`.
 
