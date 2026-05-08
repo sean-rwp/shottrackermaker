@@ -74,13 +74,27 @@ Installed. Skip ahead to ["Using the app"](#using-the-app).
 1. Go to the [**Releases**](https://github.com/sean-rwp/shottrackermaker/releases) page → from the latest version, click the `.dmg` file under "Assets" to download (about 23 MB).
 2. Double-click the downloaded `.dmg` to open the installer window.
 3. **Drag the ShotTrackerMaker app into the Applications folder.**
-4. **Strip the download quarantine flag.** Open **Terminal** (⌘+Space → type "Terminal" → Enter), then paste this command and press Enter:
+4. **Strip the download quarantine flag** *(required — without this, macOS may say "ShotTrackerMaker is damaged")*:
+
+   **a. Open Terminal:**
+   - Press **⌘+Space** (Command + Spacebar) to open Spotlight Search
+   - Type **`Terminal`** in the search box
+   - Press **Return** — a Terminal window opens with a `$` prompt
+
+   **b. Copy this command:**
 
    ```bash
    xattr -cr /Applications/ShotTrackerMaker.app
    ```
 
-   *Without this step, macOS may say "ShotTrackerMaker is damaged."* This is a one-time command per install.
+   **c. Paste it into the Terminal window:**
+   - Click anywhere in the Terminal window to make it active
+   - Press **⌘+V** (Command + V) to paste
+   - Press **Return** to run it
+
+   **d. Done.** The command runs silently — no message means it worked. Close the Terminal window.
+
+   *One-time per install. You won't need to do this again unless you re-download.*
 
 5. **First launch — Gatekeeper bypass:**
    - Open Finder → **Applications**
