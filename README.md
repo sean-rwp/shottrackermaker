@@ -55,18 +55,19 @@ These files appear in the file list with a "Skipped — vendor SDK required" mar
 
 ---
 
-## Quick start (end users)
+## Quick start (Windows users)
 
-*Pre-built installers will be available on the Releases page after CI/CD setup is complete.*
-
-1. Download the installer for your OS (Windows `.msi`/`.exe`, macOS `.dmg`).
-2. Install and launch.
-3. Click **Generate Tracker**.
-4. Pick a folder of video clips. Optionally click **Add Folder** to include clips from additional folders (useful when shoot footage is split across days, cameras, or scenes).
-5. Click **Extract All** when ready. Live progress shown in the button label.
-6. When the Save As dialog appears, choose where to save the `.xlsx`. The default filename is based on your first picked folder.
+1. Go to **[Releases](https://github.com/sean-rwp/shottrackermaker/releases)** → download `ShotTrackerMaker_0.1.0_x64-setup.exe` from the latest version.
+2. Run the installer. **Windows SmartScreen will warn** ("Windows protected your PC") — click **More info → Run anyway** (one-time, expected — see [`KNOWN_LIMITATIONS.md`](./KNOWN_LIMITATIONS.md)).
+3. Launch from the Start menu.
+4. Click **Generate Tracker** → pick a folder of video clips.
+5. Optionally click **Add Folder** to include clips from additional folders (useful when shoot footage is split across days, cameras, or scenes).
+6. Click **Extract All** when ready. Live progress shown in the button label.
+7. When the Save As dialog appears, choose where to save the `.xlsx`. Default filename: `shot_tracker_v01.xlsx`.
 
 A `_thumbnails/` subfolder is created next to your videos containing all the PNGs, so you have keepable thumbnails in addition to those embedded in the `.xlsx`.
+
+> **macOS users:** No pre-built installer yet — build from source. See [Building from source](#building-from-source) and [Running on macOS](#running-on-macos) below.
 
 ---
 
@@ -106,6 +107,55 @@ npm run tauri build    # production build
 ```
 
 The FFmpeg binary is intentionally gitignored — it's too large for the repo. CI/CD will fetch it automatically per platform during release builds.
+
+---
+
+## Running on macOS
+
+After `npm run tauri build` completes, the macOS app bundle is at:
+
+```
+src-tauri/target/release/bundle/macos/ShotTrackerMaker.app
+```
+
+> ⚠️ **Note on the `.dmg`:** Tauri's DMG packaging step (`bundle_dmg.sh`) frequently fails on local Mac builds — you may see `Error failed to bundle project error running bundle_dmg.sh` at the end of the build. **This is harmless** — the `.app` you actually need is already built; you just don't get a DMG wrapper.
+
+### Install
+
+1. Open Finder to the bundle folder:
+
+   ```sh
+   open src-tauri/target/release/bundle/macos
+   ```
+
+2. **Drag `ShotTrackerMaker.app` to your `/Applications` folder.** macOS will ask if you want to **Replace** any existing version → click Replace.
+
+### First launch (Gatekeeper bypass)
+
+ShotTrackerMaker is not code-signed, so macOS will block the first launch:
+
+> *"ShotTrackerMaker can't be opened because Apple cannot check it for malicious software."*
+
+**To bypass — once per install:**
+
+1. Open Finder → `/Applications`.
+2. **Right-click** (or Control-click) **ShotTrackerMaker** → **Open**.
+3. In the dialog that appears, click **Open** again.
+
+After this one-time accept, you can launch normally from Launchpad / Dock / Applications.
+
+### Updating
+
+When new commits land on `master`:
+
+```sh
+cd ~/Documents/shottrackermaker
+git pull
+npm install
+npm run tauri build
+```
+
+Then drag the new `.app` to `/Applications`, replacing the old one (Gatekeeper warning may re-appear once after a major change — same right-click → Open trick).
 
 ---
 
