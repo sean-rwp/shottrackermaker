@@ -129,7 +129,7 @@ jobs:
           echo "Contents/MacOS/:"
           ls -la "$APP_PATH/Contents/MacOS/"
 
-          FFMPEG_IN_BUNDLE=$(find "$APP_PATH/Contents/MacOS/" -name "ffmpeg-*" -type f | head -1)
+          FFMPEG_IN_BUNDLE=$(find "$APP_PATH/Contents/MacOS/" -name "ffmpeg*" -type f | head -1)
           if [ -z "$FFMPEG_IN_BUNDLE" ]; then
             echo "ERROR: FFmpeg sidecar missing from app bundle"
             echo "Full bundle tree:"
