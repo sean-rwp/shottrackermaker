@@ -63,15 +63,31 @@ jobs:
           Remove-Item -Recurse -Force ffmpeg.zip, ffmpeg-extract
           & "src-tauri/binaries/ffmpeg-x86_64-pc-windows-msvc.exe" -version | Select-Object -First 1
 
-      - name: Download FFmpeg (macOS Apple Silicon, ffmpeg-static)
+      - name: Download FFmpeg (macOS Apple Silicon, via ffmpeg-static npm package)
         if: matrix.platform == 'macos-latest'
         run: |
+          set -e  # fail on any error
           mkdir -p src-tauri/binaries
-          # ffmpeg-static publishes platform-specific static builds
-          curl -L "https://github.com/eugeneware/ffmpeg-static/releases/download/b6.0/darwin-arm64" \
-            -o src-tauri/binaries/ffmpeg-aarch64-apple-darwin
+
+          # Use the canonical ffmpeg-static npm package which handles platform
+          # detection and downloads the correct static FFmpeg for the runner.
+          npm install --no-save ffmpeg-static
+
+          # Get the absolute path the package wrote the binary to
+          FFMPEG_PATH=$(node -e "console.log(require('ffmpeg-static'))")
+          echo "ffmpeg-static placed binary at: $FFMPEG_PATH"
+
+          cp "$FFMPEG_PATH" src-tauri/binaries/ffmpeg-aarch64-apple-darwin
           chmod +x src-tauri/binaries/ffmpeg-aarch64-apple-darwin
-          src-tauri/binaries/ffmpeg-aarch64-apple-darwin -version | head -1
+
+          # Verify it's actually a Mach-O ARM binary, not a 404 page or empty file
+          echo "File info:"
+          ls -la src-tauri/binaries/ffmpeg-aarch64-apple-darwin
+          file src-tauri/binaries/ffmpeg-aarch64-apple-darwin
+
+          # Run it directly (no pipe to mask errors)
+          echo "FFmpeg version output:"
+          src-tauri/binaries/ffmpeg-aarch64-apple-darwin -version
 
       # ─── Build & Release ───────────────────────────────────
 
@@ -98,3 +114,30 @@ jobs:
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
+
+      - name: Verify macOS bundle contains FFmpeg sidecar
+        if: matrix.platform == 'macos-latest'
+        run: |
+          set -e
+          APP_PATH=$(find src-tauri/target -name "ShotTrackerMaker.app" -type d | head -1)
+          if [ -z "$APP_PATH" ]; then
+            echo "ERROR: ShotTrackerMaker.app not found in build output"
+            find src-tauri/target -name "*.app" -type d
+            exit 1
+          fi
+          echo "Inspecting bundle: $APP_PATH"
+          echo "Contents/MacOS/:"
+          ls -la "$APP_PATH/Contents/MacOS/"
+
+          FFMPEG_IN_BUNDLE=$(find "$APP_PATH/Contents/MacOS/" -name "ffmpeg-*" -type f | head -1)
+          if [ -z "$FFMPEG_IN_BUNDLE" ]; then
+            echo "ERROR: FFmpeg sidecar missing from app bundle"
+            echo "Full bundle tree:"
+            find "$APP_PATH" -type f | head -100
+            exit 1
+          fi
+
+          echo "FFmpeg sidecar in bundle:"
+          ls -la "$FFMPEG_IN_BUNDLE"
+          file "$FFMPEG_IN_BUNDLE"
+          echo "✓ Sanity check passed"
