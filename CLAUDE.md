@@ -52,7 +52,9 @@ npm run tauri build    # production build → installers under src-tauri\target\
 
 No test suite and no linter are configured. Verification is manual: run the app against a folder of clips (small test .mp4s can be generated with the bundled FFmpeg's `color=` lavfi source).
 
-Releases are produced by pushing a version tag (see `release.yml`); CI builds Windows + macOS and attaches installers to a GitHub Release.
+Releases are produced by pushing a version tag (see `release.yml`); CI builds Windows + macOS and attaches installers to a **draft** GitHub Release (publish manually). Published so far: v0.2.1 (first public), v0.3.0 (first fully-CI).
+
+**Release checklist — BEFORE pushing a new tag:** bump the version to match the tag in all three of `package.json`, `src-tauri/tauri.conf.json`, and `src-tauri/Cargo.toml`, then run `cargo update -w` in `src-tauri/` to sync `Cargo.lock`, and commit. The installer filenames come from `tauri.conf.json`, not the tag — v0.2.1/v0.3.0 shipped installers mislabeled `0.1.0` because this was missed.
 
 ## Architecture
 
@@ -69,3 +71,4 @@ Camera-RAW extensions (`.r3d`, `.ari`, `.arx`, `.braw`, `.crm`, `.rmf`) are inte
 - **2026-05-06** — last production build (v0.1.0 installers, paths above)
 - **2026-05-08** — last code work: README install-instruction overhaul; CI release pipeline tested through tag `v0.3.0-test3`
 - **2026-06-10** — post-rename sanity check passed (dev build + end-to-end test); CLAUDE.md created
+- **2026-06-10** — version sync: internal version 0.1.0 → 0.3.0 across package.json / tauri.conf.json / Cargo.toml to match the published release tag; release checklist added above
